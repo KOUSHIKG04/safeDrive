@@ -26,9 +26,19 @@
     "plugins": [
       "expo-router",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow SafeDrive to record route points during an active drive."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
+          "dark": {
+            "backgroundColor": "#0a0a0a",
+            "image": "./assets/images/splash-icon.png"
+          },
           "android": {
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
