@@ -32,6 +32,12 @@
         }
       ],
       [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow SafeDrive to analyze motion during an active drive."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",

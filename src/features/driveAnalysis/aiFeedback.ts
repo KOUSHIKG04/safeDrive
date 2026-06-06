@@ -1,7 +1,7 @@
 import { EVENT_LABELS } from "./thresholds";
 import type { DriveEvent, EventBreakdown } from "./types";
 
-const GEMINI_MODEL = "gemini-3.5-flash";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const MIN_CLEAR_FEEDBACK_LENGTH = 70;
 
@@ -95,8 +95,7 @@ async function requestGeminiFeedback(
       system_instruction: {
         parts: [
           {
-            text:
-              "You are a driving safety coach for a student mobile telematics app. Give concise, practical feedback based only on the provided sensor events. Do not invent GPS, speed, weather, or road details.",
+            text: "You are a driving safety coach for a student mobile telematics app. Give concise, practical feedback based only on the provided sensor events. Do not invent GPS, speed, weather, or road details.",
           },
         ],
       },
@@ -139,7 +138,10 @@ function buildDrivingFeedbackPrompt(
   attempt: number,
 ): string {
   const eventBreakdown = Object.entries(input.breakdown)
-    .map(([type, count]) => `${EVENT_LABELS[type as keyof EventBreakdown]}: ${count}`)
+    .map(
+      ([type, count]) =>
+        `${EVENT_LABELS[type as keyof EventBreakdown]}: ${count}`,
+    )
     .join(", ");
   const latestEvents =
     input.events.length > 0

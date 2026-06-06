@@ -134,10 +134,10 @@ export function useDriveSession() {
         location: routeRef.current[routeRef.current.length - 1] ?? null,
       }));
 
-      eventsRef.current = [...detectedEventsWithLocation, ...eventsRef.current].slice(
-        0,
-        MAX_EVENT_LOG_SIZE,
-      );
+      eventsRef.current = [
+        ...detectedEventsWithLocation,
+        ...eventsRef.current,
+      ].slice(0, MAX_EVENT_LOG_SIZE);
       setEvents(eventsRef.current);
     }
 
@@ -170,18 +170,41 @@ export function useDriveSession() {
         return;
       }
 
-      const [, , , , locationPermission] = await Promise.all([
+      const requiredSensorPermissions = await Promise.all([
         Accelerometer.requestPermissionsAsync(),
         Gyroscope.requestPermissionsAsync(),
         DeviceMotion.requestPermissionsAsync(),
-        Magnetometer.requestPermissionsAsync(),
-        Location.requestForegroundPermissionsAsync(),
       ]);
+
+      if (requiredSensorPermissions.some((permission) => !permission.granted)) {
+        setError(
+          "Motion sensor permission is required to analyze a driving session.",
+        );
+        return;
+      }
+
+      let magnetometerEnabled = nextAvailability.magnetometer;
+
+      if (magnetometerEnabled) {
+        const magnetometerPermission =
+          await Magnetometer.requestPermissionsAsync();
+        magnetometerEnabled = magnetometerPermission.granted;
+      }
+
+      const usableAvailability = {
+        ...nextAvailability,
+        magnetometer: magnetometerEnabled,
+      };
+
+      setAvailability(usableAvailability);
 
       Accelerometer.setUpdateInterval(SENSOR_UPDATE_INTERVAL_MS);
       Gyroscope.setUpdateInterval(SENSOR_UPDATE_INTERVAL_MS);
       DeviceMotion.setUpdateInterval(SENSOR_UPDATE_INTERVAL_MS);
-      Magnetometer.setUpdateInterval(SENSOR_UPDATE_INTERVAL_MS);
+
+      if (magnetometerEnabled) {
+        Magnetometer.setUpdateInterval(SENSOR_UPDATE_INTERVAL_MS);
+      }
 
       readingsRef.current = INITIAL_READINGS;
       eventsRef.current = [];
@@ -200,7 +223,10 @@ export function useDriveSession() {
 
       subscriptionsRef.current = [
         Accelerometer.addListener((reading) => {
-          readingsRef.current = { ...readingsRef.current, accelerometer: reading };
+          readingsRef.current = {
+            ...readingsRef.current,
+            accelerometer: reading,
+          };
           processSample();
         }),
         Gyroscope.addListener((reading) => {
@@ -208,35 +234,24 @@ export function useDriveSession() {
           processSample();
         }),
         DeviceMotion.addListener((reading) => {
-          readingsRef.current = { ...readingsRef.current, deviceMotion: reading };
+          readingsRef.current = {
+            ...readingsRef.current,
+            deviceMotion: reading,
+          };
           processSample();
         }),
       ];
 
-      if (nextAvailability.magnetometer) {
+      if (magnetometerEnabled) {
         subscriptionsRef.current.push(
           Magnetometer.addListener((reading) => {
-            readingsRef.current = { ...readingsRef.current, magnetometer: reading };
+            readingsRef.current = {
+              ...readingsRef.current,
+              magnetometer: reading,
+            };
             processSample();
           }),
         );
-      }
-
-      if (locationPermission.status === "granted") {
-        const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        appendRoutePoint(currentLocation);
-        locationSubscriptionRef.current = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Balanced,
-            distanceInterval: LOCATION_UPDATE_DISTANCE_M,
-            timeInterval: LOCATION_UPDATE_INTERVAL_MS,
-          },
-          appendRoutePoint,
-        );
-      } else {
-        setError("Location permission denied. Route replay and heatmap are disabled.");
       }
 
       elapsedTimerRef.current = setInterval(() => {
@@ -244,6 +259,34 @@ export function useDriveSession() {
           setElapsedMs(Date.now() - startTimeRef.current);
         }
       }, 1000);
+
+      try {
+        const locationPermission =
+          await Location.requestForegroundPermissionsAsync();
+
+        if (locationPermission.granted) {
+          const currentLocation = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          appendRoutePoint(currentLocation);
+          locationSubscriptionRef.current = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              distanceInterval: LOCATION_UPDATE_DISTANCE_M,
+              timeInterval: LOCATION_UPDATE_INTERVAL_MS,
+            },
+            appendRoutePoint,
+          );
+        } else {
+          setError(
+            "Location permission denied. Route replay and heatmap are disabled.",
+          );
+        }
+      } catch {
+        setError(
+          "Location is unavailable. Sensor scoring remains active, but route features are disabled.",
+        );
+      }
     } catch (caughtError) {
       stopSensors();
       statusRef.current = "idle";
@@ -263,7 +306,9 @@ export function useDriveSession() {
 
     const endedAt = Date.now();
     const finalElapsedMs =
-      startTimeRef.current === null ? elapsedMs : endedAt - startTimeRef.current;
+      startTimeRef.current === null
+        ? elapsedMs
+        : endedAt - startTimeRef.current;
     const finalEvents = eventsRef.current;
     const finalRoute = routeRef.current;
     const finalScore = calculateDrivingScore(finalEvents);

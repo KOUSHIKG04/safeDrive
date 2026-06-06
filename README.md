@@ -2,10 +2,40 @@
 
 SafeDrive is an Expo mobile app that uses phone motion sensors to detect risky driving behavior during a drive session. It starts every drive at a score of 100, listens to live sensor data, detects driving events, applies score penalties, and shows a session dashboard.
 
-## Submission Links
+## Project Demo
 
-- Public GitHub repository: add your repository link here
-- Demo video: add your demo video link here
+Watch the [SafeDrive demo video](https://github.com/user-attachments/assets/c7f71284-a7e2-4203-9854-d36815480e96) to see the driving session workflow, live sensor readings, event detection, score calculation, and analytics dashboard.
+
+### Dashboard Screenshot
+
+![SafeDrive dashboard](https://github.com/user-attachments/assets/4c8e7c76-f584-47a9-a965-0f5f633e702b)
+
+## Requirement Coverage
+
+| Assignment requirement           | Status                   | Implementation                                                                                      |
+| -------------------------------- | ------------------------ | --------------------------------------------------------------------------------------------------- |
+| Start Drive / End Drive          | Implemented              | `DriveControls.tsx` and `useDriveSession.ts`                                                        |
+| Sensor collection during a drive | Implemented              | Subscriptions exist only while status is `driving`                                                  |
+| Accelerometer                    | Implemented              | Raw acceleration and device movement detection                                                      |
+| Gyroscope                        | Implemented              | Yaw, steering, and phone handling detection                                                         |
+| Device Motion                    | Implemented              | Gravity-adjusted acceleration and rotation rate                                                     |
+| Magnetometer                     | Implemented as optional  | Heading and heading-change support when available and permitted                                     |
+| Real-time event detection        | Implemented              | `detectDriveEvents()` runs as sensor samples arrive                                                 |
+| Six required event types         | Implemented              | Braking, acceleration, turns, steering, movement, and phone handling                                |
+| Score starts at 100              | Implemented              | Event penalties are subtracted and score is clamped at zero                                         |
+| Final score and safety rating    | Implemented              | Shown live and in the completed session summary                                                     |
+| Dashboard analytics              | Implemented              | Duration, total events, breakdown, score, rating, and timeline                                      |
+| Sensor lifecycle cleanup         | Implemented              | Sensor, GPS, and timer subscriptions are removed on end, reset, error, and unmount                  |
+| Permission handling              | Implemented              | Required motion permissions block startup when denied; location and magnetometer degrade gracefully |
+| Battery and render efficiency    | Implemented              | 10 Hz sampling, 250 ms UI throttling, cooldowns, foreground-only GPS, and cleanup                   |
+| Route replay                     | Implemented stretch goal | Foreground GPS route rendered with SVG                                                              |
+| Event timeline                   | Implemented stretch goal | Latest-first event list with time, penalty, and details                                             |
+| Event heatmap                    | Implemented stretch goal | Events with captured locations are plotted over the route                                           |
+| AI-generated feedback            | Implemented stretch goal | Gemini 2.5 Flash with local feedback fallback                                                       |
+| Historical comparison            | Implemented stretch goal | Completed summaries persist in AsyncStorage                                                         |
+| Public repository                | Ready                    | Available in this GitHub repository                                                                 |
+| Demo video                       | Complete                 | Linked in the Project Demo section                                                                  |
+| Dashboard screenshot             | Complete                 | Included in the Project Demo section                                                                |
 
 ## Tech Stack
 
@@ -58,6 +88,8 @@ Important Expo sensor functions used:
 
 - `Sensor.isAvailableAsync()`: checks whether the device supports that sensor before subscribing.
 - `Sensor.requestPermissionsAsync()`: asks for motion sensor permission where the platform requires it.
+- Required accelerometer, gyroscope, and Device Motion permission results are checked before the drive starts.
+- Magnetometer is optional; denial disables heading-based detection without blocking the drive.
 - `Sensor.setUpdateInterval(100)`: requests a 100 ms update interval, about 10 samples per second.
 - `Sensor.addListener(callback)`: starts receiving sensor readings.
 - `subscription.remove()`: stops receiving readings and prevents battery drain or memory leaks.
@@ -68,6 +100,16 @@ Important Expo Location functions used:
 - `Location.getCurrentPositionAsync()`: captures the starting route point.
 - `Location.watchPositionAsync()`: records route points during an active drive.
 - `locationSubscription.remove()`: stops GPS tracking when the drive ends or resets.
+- Location denial or failure disables only route replay and heatmap; sensor scoring continues.
+
+Expo SDK 55 references used:
+
+- [Expo Sensors](https://docs.expo.dev/versions/v55.0.0/sdk/sensors/)
+- [Accelerometer](https://docs.expo.dev/versions/v55.0.0/sdk/accelerometer/)
+- [Gyroscope](https://docs.expo.dev/versions/v55.0.0/sdk/gyroscope/)
+- [Device Motion](https://docs.expo.dev/versions/v55.0.0/sdk/devicemotion/)
+- [Magnetometer](https://docs.expo.dev/versions/v55.0.0/sdk/magnetometer/)
+- [Expo Location](https://docs.expo.dev/versions/v55.0.0/sdk/location/)
 
 Important React functions used:
 
@@ -108,14 +150,14 @@ Each event type has a cooldown window so one real-world action does not create m
 
 ## Thresholds
 
-| Event | Threshold | Penalty |
-| --- | --- | --- |
-| Harsh Braking | forward acceleration <= -0.42 g | -5 |
-| Harsh Acceleration | forward acceleration >= 0.42 g | -5 |
-| Sharp Turn | lateral acceleration >= 0.50 g or heading change >= 14 deg/sample | -3 |
-| Aggressive Steering | yaw rotation >= 2.2 rad/s | -4 |
-| Excessive Device Movement | raw acceleration >= 1.65 g or linear acceleration >= 1.15 g | -4 |
-| Possible Phone Handling | linear acceleration >= 0.65 g plus rotation >= 3.1 rad/s or 170 deg/s | -10 |
+| Event                     | Threshold                                                             | Penalty |
+| ------------------------- | --------------------------------------------------------------------- | ------- |
+| Harsh Braking             | forward acceleration <= -0.42 g                                       | -5      |
+| Harsh Acceleration        | forward acceleration >= 0.42 g                                        | -5      |
+| Sharp Turn                | lateral acceleration >= 0.50 g or heading change >= 14 deg/sample     | -3      |
+| Aggressive Steering       | yaw rotation >= 2.2 rad/s                                             | -4      |
+| Excessive Device Movement | raw acceleration >= 1.65 g or linear acceleration >= 1.15 g           | -4      |
+| Possible Phone Handling   | linear acceleration >= 0.65 g plus rotation >= 3.1 rad/s or 170 deg/s | -10     |
 
 Cooldowns:
 
@@ -133,7 +175,7 @@ These thresholds are intentionally conservative for a class project. Real insura
 Every drive starts at 100.
 
 ```ts
-score = Math.max(0, 100 - totalEventPenalties)
+score = Math.max(0, 100 - totalEventPenalties);
 ```
 
 Safety rating:
@@ -186,6 +228,13 @@ Run on a physical phone with Expo Go for best results. Simulators often do not p
 
 If you add or change `.env`, restart Expo so the environment variable is loaded again.
 
+Validate the project:
+
+```bash
+npm run typecheck
+npm run lint
+```
+
 ## Demo Video Checklist
 
 Show these items in your recording:
@@ -211,7 +260,3 @@ Show these items in your recording:
 - Sensor readings are sampled at 100 ms for a balance of responsiveness and battery usage.
 - GPS route points are sampled every 20 meters or about every 3 seconds while driving.
 - This project detects likely events from phone sensors only. It does not know true vehicle speed or road conditions.
-
-## Screenshots
-
-Add screenshots of the dashboard before submission.
