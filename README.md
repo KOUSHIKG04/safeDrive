@@ -4,11 +4,15 @@ SafeDrive is an Expo mobile app that uses phone motion sensors to detect risky d
 
 ## Project Demo
 
-Watch the [SafeDrive demo video](https://github.com/user-attachments/assets/c7f71284-a7e2-4203-9854-d36815480e96) to see the driving session workflow, live sensor readings, event detection, score calculation, and analytics dashboard.
+The demo shows the driving session workflow, live sensor readings, event detection, score calculation, and analytics dashboard.
+
+https://github.com/user-attachments/assets/c7f71284-a7e2-4203-9854-d36815480e96
 
 ### Dashboard Screenshot
 
-![SafeDrive dashboard](https://github.com/user-attachments/assets/4c8e7c76-f584-47a9-a965-0f5f633e702b)
+<a href="https://github.com/user-attachments/assets/4c8e7c76-f584-47a9-a965-0f5f633e702b">
+  <img src="https://github.com/user-attachments/assets/4c8e7c76-f584-47a9-a965-0f5f633e702b" alt="SafeDrive dashboard" width="280" />
+</a>
 
 ## Requirement Coverage
 
